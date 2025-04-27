@@ -160,18 +160,18 @@ public class SintacticoSemantico {
             declaraciones.tipo = VACIO;
         }
     }
-
-        private void lista_declaraciones(Atributos lista_declaraciones) {
+    
+    private void lista_declaraciones(Atributos lista_declaraciones) {
         if (preAnalisis.equals("id")) {
             Atributos tipo = new Atributos();
             Atributos lista_declaraciones_ = new Atributos();
             Linea_BE id = cmp.be.preAnalisis;
-            
+
             //lista_declaraciones -> id as tipo lista_declaraciones'
             emparejar("id");
             emparejar("as");
             tipo(tipo);
-            
+
             //Accion4
             if (buscaTipo(id).equals(VACIO)) {
                 lista_declaraciones.aux = VACIO;
@@ -182,6 +182,8 @@ public class SintacticoSemantico {
             }
             
             lista_declaraciones_(lista_declaraciones_);
+            
+            
             //acciont5
             if (sonVacios(lista_declaraciones.aux, lista_declaraciones_.tipo)) {
                 lista_declaraciones.tipo = VACIO;
@@ -201,15 +203,15 @@ public class SintacticoSemantico {
     }
 
     private void tipo(Atributos tipo) {
-        switch (preAnalisis) {
-            case "integer" ->
-                emparejar("integer");
-            case "single" ->
-                emparejar("single");
-            case "string" ->
-                emparejar("string");
-            default ->
-                error("[tipo]: Se esperaba un tipo de dato");
+        Set<String> validos = Set.of(INTEGER, SINGLE, STRING);
+        if (validos.contains(preAnalisis)) {
+            //tipo -> integer  | single | string 
+            emparejar(preAnalisis);
+            
+            //Accion 8, 9, 10
+            tipo.tipo = preAnalisis;
+        } else {
+            error("[tipo]: Se esperaba un tipo de dato");
         }
     }
 
