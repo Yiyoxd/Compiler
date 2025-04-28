@@ -129,7 +129,7 @@ public class SintacticoSemantico {
             //programa -> declaraciones declaraciones_subprogramas proposiciones_optativas end
             declaraciones(declaraciones);
             declaraciones_subprogramas();
-            proposiciones_optativas();
+            proposiciones_optativas(proposiciones_optativas);
             emparejar( "end" );
             
             //accio1
@@ -174,11 +174,13 @@ public class SintacticoSemantico {
 
             //Accion4
             if (buscaTipo(id).equals(VACIO)) {
+                cmp.ts.anadeTipo(id.entrada, tipo.tipo);
                 lista_declaraciones.aux = VACIO;
                 lista_declaraciones.dominio = tipo.tipo;
             } else {
                 lista_declaraciones.aux = ERROR_TIPO;
                 lista_declaraciones.dominio = VACIO;
+                error(" el identificador " + id.lexema + " ya esta declarado");
             }
             
             lista_declaraciones_(lista_declaraciones_);
@@ -189,9 +191,6 @@ public class SintacticoSemantico {
                 lista_declaraciones.tipo = VACIO;
                 if (!lista_declaraciones.dominio.equals(VACIO)) {
                     lista_declaraciones.dominio += " x " + lista_declaraciones_.dominio;
-                } else {
-                    //lista_declaraciones.dominio := lista_declaraciones.dominio
-                    //La 5 viene asi pero esa es de las de gil, asi que no c sjksjk
                 }
             } else {
                 lista_declaraciones.tipo = ERROR_TIPO;
@@ -205,11 +204,12 @@ public class SintacticoSemantico {
     private void tipo(Atributos tipo) {
         Set<String> validos = Set.of(INTEGER, SINGLE, STRING);
         if (validos.contains(preAnalisis)) {
+            //Accion 8, 9, 10
+            tipo.tipo = preAnalisis;
+            
             //tipo -> integer  | single | string 
             emparejar(preAnalisis);
             
-            //Accion 8, 9, 10
-            tipo.tipo = preAnalisis;
         } else {
             error("[tipo]: Se esperaba un tipo de dato");
         }
@@ -249,7 +249,8 @@ public class SintacticoSemantico {
     {
         if ( preAnalisis.equals( "function" ) )
         { 	//declaracion_subprograma -> declaracion_funcion
-            declaracion_funcion();
+            Atributos declaracion_funcion = new Atributos();
+            declaracion_funcion(declaracion_funcion);
         }
         else if ( preAnalisis.equals( "sub" ) )
         { 	//declaracion_subprograma -> declaracion_subrutina
@@ -261,33 +262,56 @@ public class SintacticoSemantico {
         }
     }
 
-    private void declaracion_funcion ()
-    {
-        if ( preAnalisis.equals( "function" ) )
-        { 	//declaracion_funcion -> function id argumentos as tipo proposiciones_optativas end function
-            emparejar( "function" );
-            emparejar( "id" );
-            argumentos();
-            emparejar( "as" );
-            tipo();
-            proposiciones_optativas();
-            emparejar( "end" );
-            emparejar( "function" );
-        }
-        else
-        {
-            error( "[declaracion_funcion]: Se esperaba la palabra reservada \"función\" para una funcion" );
+    private void declaracion_funcion(Atributos declaracion_funcion) {
+        if (preAnalisis.equals("function")) {
+            //declaracion_funcion -> function id argumentos as tipo proposiciones_optativas end function
+            Atributos argumentos = new Atributos();
+            Atributos proposiciones_optativas = new Atributos();
+            Atributos tipo = new Atributos();
+
+            emparejar("function");
+            Linea_BE id = cmp.be.preAnalisis;
+            emparejar("id");
+            argumentos(argumentos);
+            emparejar("as");
+            tipo(tipo);
+
+            //Accion semantica 15
+            if (buscaTipo(id).equals(VACIO)) {
+                declaracion_funcion.aux = VACIO;
+                anadeTipo(id.entrada, argumentos.dominio + " -> " + tipo.tipo);
+            } else {
+                declaracion_funcion.aux = ERROR_TIPO;
+            }
+
+            proposiciones_optativas(proposiciones_optativas);
+            emparejar("end");
+            emparejar("function");
+
+            //Accion semantica 16
+            if (sonVacios(declaracion_funcion.aux, proposiciones_optativas.tipo, argumentos.tipo)) {
+                declaracion_funcion.tipo = VACIO;
+            } else {
+                if (!declaracion_funcion.aux.equals(VACIO)) {
+                    cmp.me.error(Compilador.ERR_SEMANTICO, "[declaracion_funcion]: La variable " + id.lexema + " ya esta declarada.");
+                } else {
+                    cmp.me.error(Compilador.ERR_SEMANTICO, "[declaracion_funcion]: Error en la declaracion de la funcion");
+                }
+                declaracion_funcion.tipo = ERROR_TIPO;
+            }
+        } else {
+            error("[declaracion_funcion]: Se esperaba la palabra reservada \"función\" para una funcion");
         }
     }
-
+    
     private void declaracion_subrutina ()
     {
         if ( preAnalisis.equals( "sub" ) )
         { 	//declaracion_subrutina -> sub id argumentos proposiciones_optativas end sub
             emparejar( "sub" );
             emparejar( "id" );
-            argumentos();
-            proposiciones_optativas();
+            //argumentos();
+            //proposiciones_optativas();
             emparejar( "end" );
             emparejar( "sub" );
         }
@@ -297,26 +321,33 @@ public class SintacticoSemantico {
         }
     }
 
-    private void argumentos ()
-    {
-        if ( preAnalisis.equals( "(" ) )
-        { 	//argumentos -> ( lista_declaraciones )
-            emparejar( "(" );
-            lista_declaraciones();
-            emparejar( ")" );
-        }
-        else
-        {
+    private void argumentos(Atributos argumentos) {
+        if (preAnalisis.equals("(")) {
+            //argumentos -> ( lista_declaraciones )
+            Atributos lista_declaraciones = new Atributos();
+            emparejar("(");
+            lista_declaraciones(lista_declaraciones);
+            emparejar(")");
+            
+            //Accion semantica 19
+            argumentos.tipo = lista_declaraciones.tipo;
+            argumentos.dominio = lista_declaraciones.dominio;
+        } else {
             //argumentos -> empty
+            //Accion20
+            argumentos.tipo = VACIO;
+            argumentos.dominio = VACIO;
         }
     }
 
-    private void proposiciones_optativas() {
+    private void proposiciones_optativas(Atributos proposiciones_optativas) {
         Set<String> validos = Set.of("id", "call", "if", "do");
         if (validos.contains(preAnalisis)) {
             //proposiciones_optativas -> proposicion proposiciones_optativas
             proposicion();
-            proposiciones_optativas();
+            //proposiciones_optativas();
+        } else {
+            proposiciones_optativas.tipo = VACIO;
         }
     }
 
@@ -339,9 +370,9 @@ public class SintacticoSemantico {
             emparejar( "if" );
             condicion();
             emparejar( "then" );
-            proposiciones_optativas();
+            //proposiciones_optativas();
             emparejar( "else" );
-            proposiciones_optativas();
+            //proposiciones_optativas();
             emparejar( "end" );
             emparejar( "if" );
         }
@@ -350,7 +381,7 @@ public class SintacticoSemantico {
             emparejar( "do" );
             emparejar( "while" );
             condicion();
-            proposiciones_optativas();
+            //proposiciones_optativas();
             emparejar( "loop" );
         }
         else
@@ -557,6 +588,10 @@ public class SintacticoSemantico {
     
     private String buscaTipo(Linea_BE id) {
         return cmp.ts.buscaTipo(id.entrada);
+    }
+    
+    private void anadeTipo(int entrada, String tipo) {
+        cmp.ts.anadeTipo(entrada, tipo);
     }
     
     
