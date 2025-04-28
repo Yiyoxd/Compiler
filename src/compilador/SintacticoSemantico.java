@@ -120,17 +120,26 @@ public class SintacticoSemantico {
     //--------------------------------------------------------------------------
     
     private void programa (Atributos programa) {
+        Atributos proposiciones_optativas = new Atributos();
+        Atributos declaraciones = new Atributos();
+        Atributos declaraciones_subprogramas = new Atributos();
+        
         Set<String> validos = Set.of("dim", "function", "sub", "id", "call", "if", "do", "end");
         if (validos.contains(preAnalisis)) {
-            Atributos declaraciones = new Atributos();
-            Atributos declaraciones_subprogramas = new Atributos();
-            Atributos proposiciones_optativas = new Atributos();
+            //Atributos proposiciones_optativas = new Atributos();
             
             //programa -> declaraciones declaraciones_subprogramas proposiciones_optativas end
             declaraciones(declaraciones);
-            declaraciones_subprogramas();
-            proposiciones_optativas();
+            declaraciones_subprogramas(declaraciones_subprogramas);
+            proposiciones_optativas(proposiciones_optativas);
             emparejar( "end" );
+            //==========================================================================
+            if( analizarSemantica )
+                System.out.println("Activa");
+            else
+                System.out.println("No activa");
+            
+            System.out.println("");
             
             //accio1
             boolean sonVacios = sonTipoVacio(declaraciones, declaraciones_subprogramas, proposiciones_optativas);
@@ -163,39 +172,43 @@ public class SintacticoSemantico {
     
     private void lista_declaraciones(Atributos lista_declaraciones) {
         if (preAnalisis.equals("id")) {
-            Atributos tipo = new Atributos();
             Atributos lista_declaraciones_ = new Atributos();
             Linea_BE id = cmp.be.preAnalisis;
+            Atributos tipo = new Atributos();
 
             //lista_declaraciones -> id as tipo lista_declaraciones'
             emparejar("id");
             emparejar("as");
             tipo(tipo);
-
-            //Accion4
-            if (buscaTipo(id).equals(VACIO)) {
-                lista_declaraciones.aux = VACIO;
-                lista_declaraciones.dominio = tipo.tipo;
-            } else {
-                lista_declaraciones.aux = ERROR_TIPO;
-                lista_declaraciones.dominio = VACIO;
+            //Accion 4
+            if( analizarSemantica ){
+                if( cmp.ts.buscaTipo(id.entrada).equals("")){
+                    cmp.ts.anadeTipo(id.entrada, tipo.tipo);
+                    lista_declaraciones.aux = VACIO;
+                    lista_declaraciones.dominio = tipo.tipo;
+                }else{
+                    lista_declaraciones.aux = ERROR_TIPO;
+                    lista_declaraciones.dominio = "";
+                }
             }
             
             lista_declaraciones_(lista_declaraciones_);
             
-            
-            //acciont5
-            if (sonVacios(lista_declaraciones.aux, lista_declaraciones_.tipo)) {
-                lista_declaraciones.tipo = VACIO;
-                if (!lista_declaraciones.dominio.equals(VACIO)) {
-                    lista_declaraciones.dominio += " x " + lista_declaraciones_.dominio;
-                } else {
-                    //lista_declaraciones.dominio := lista_declaraciones.dominio
-                    //La 5 viene asi pero esa es de las de gil, asi que no c sjksjk
+            //Accion 5
+            if( analizarSemantica ){
+                if( lista_declaraciones.aux.equals(VACIO) && lista_declaraciones_.tipo.equals(VACIO) ){
+                    lista_declaraciones.tipo = VACIO;
+                    if(! lista_declaraciones_.dominio.equals("") ){
+                        lista_declaraciones.dominio = lista_declaraciones.dominio + " x " + lista_declaraciones_.dominio;
+                    }
+                }else{
+                    if( lista_declaraciones.aux.equals(VACIO) )
+                        cmp.me.error(Compilador.ERR_SEMANTICO, "[lista_declaraciones]: Error en la declaracion de variables");
+                    else
+                        cmp.me.error(Compilador.ERR_SEMANTICO, "[lista_declaraciones]: La variable " + id.lexema + " ya esta declarada.");
+                    
+                    lista_declaraciones.tipo = ERROR_TIPO;
                 }
-            } else {
-                lista_declaraciones.tipo = ERROR_TIPO;
-                lista_declaraciones.dominio = VACIO;
             }
         } else {
             error("[lista_declaraciones]: Se esperaba un identificador");
@@ -206,10 +219,9 @@ public class SintacticoSemantico {
         Set<String> validos = Set.of(INTEGER, SINGLE, STRING);
         if (validos.contains(preAnalisis)) {
             //tipo -> integer  | single | string 
-            emparejar(preAnalisis);
-            
             //Accion 8, 9, 10
             tipo.tipo = preAnalisis;
+            emparejar(preAnalisis);
         } else {
             error("[tipo]: Se esperaba un tipo de dato");
         }
@@ -232,28 +244,56 @@ public class SintacticoSemantico {
         }
     }
 
-    private void declaraciones_subprogramas ()
+    private void declaraciones_subprogramas (Atributos declaraciones_subprogramas)
     {
+        Atributos declaracion_subprograma = new Atributos();
+        Atributos declaraciones_subprogramas1 = new Atributos();
         if ( preAnalisis.equals( "function" ) || preAnalisis.equals( "sub" ) )
         { 	//declaraciones_subprogramas -> declaracion_subprograma declaraciones_subprogramas
-            declaracion_subprograma();
-            declaraciones_subprogramas();
+            declaracion_subprograma(declaracion_subprograma);
+            declaraciones_subprogramas(declaraciones_subprogramas1);
+            
+            //Accion semantica 11
+            if( analizarSemantica ){
+                if( declaraciones_subprogramas1.tipo.equals(VACIO) && declaracion_subprograma.tipo.equals(VACIO) ){
+                    declaraciones_subprogramas.tipo = VACIO;
+                }else{
+                    declaraciones_subprogramas.tipo = ERROR_TIPO;
+                    cmp.me.error(Compilador.ERR_SEMANTICO, "[declaraciones_subprogramas]: Error en la declaracion de subprogramas");    
+                }
+            }
         }
         else
         {
+            //Accion semantica 12
+            if( analizarSemantica ){
+                declaraciones_subprogramas.tipo = VACIO;
+            }
             //declaraciones_subprogramas -> empty
         }
     }
 
-    private void declaracion_subprograma ()
+    private void declaracion_subprograma (Atributos declaracion_subprograma)
     {
+        Atributos declaracion_subrutina = new Atributos();
+        Atributos declaracion_funcion = new Atributos();
         if ( preAnalisis.equals( "function" ) )
         { 	//declaracion_subprograma -> declaracion_funcion
-            declaracion_funcion();
+            declaracion_funcion(declaracion_funcion);
+            
+            //Accion semantica 13
+            if( analizarSemantica ){
+                declaracion_subprograma.tipo = declaracion_funcion.tipo;
+            }
         }
         else if ( preAnalisis.equals( "sub" ) )
         { 	//declaracion_subprograma -> declaracion_subrutina
-            declaracion_subrutina();
+            
+            declaracion_subrutina(declaracion_subrutina);
+            //Accion semantica 14
+            if( analizarSemantica ){
+                declaracion_subprograma.tipo = declaracion_subrutina.tipo;
+            }
         }
         else
         {
@@ -261,18 +301,48 @@ public class SintacticoSemantico {
         }
     }
 
-    private void declaracion_funcion ()
+    private void declaracion_funcion (Atributos declaracion_funcion)
     {
+        Atributos argumentos = new Atributos();
+        Atributos proposiciones_optativas = new Atributos();
+        Atributos tipo = new Atributos();
+        Linea_BE id;
         if ( preAnalisis.equals( "function" ) )
         { 	//declaracion_funcion -> function id argumentos as tipo proposiciones_optativas end function
             emparejar( "function" );
+            id = cmp.be.preAnalisis;
             emparejar( "id" );
-            argumentos();
+            argumentos(argumentos);
             emparejar( "as" );
-            tipo();
-            proposiciones_optativas();
+            tipo(tipo);
+            
+            //Accion semantica 15
+            if( analizarSemantica ){
+                if( buscaTipo(id).equals("")){
+                    declaracion_funcion.aux = VACIO;
+                    cmp.ts.anadeTipo(id.entrada, argumentos.dominio + " -> " + tipo.tipo);
+                }else{
+                    declaracion_funcion.aux = ERROR_TIPO;
+                }
+            }
+            
+            proposiciones_optativas(proposiciones_optativas);
             emparejar( "end" );
             emparejar( "function" );
+            
+            //Accion semantica 16
+            if( analizarSemantica ){
+                if( declaracion_funcion.aux.equals(VACIO) && proposiciones_optativas.tipo.equals(VACIO) && argumentos.tipo.equals(VACIO) ){
+                    declaracion_funcion.tipo = VACIO;
+                }else{
+                    if(! declaracion_funcion.aux.equals(VACIO) ){
+                      cmp.me.error(Compilador.ERR_SEMANTICO, "[declaracion_funcion]: La variable " + id.lexema + " ya esta declarada.");  
+                    }else{
+                      cmp.me.error(Compilador.ERR_SEMANTICO, "[declaracion_funcion]: Error en la declaracion de la funcion");    
+                    }
+                    declaracion_funcion.tipo = ERROR_TIPO;
+                }
+            }
         }
         else
         {
@@ -280,16 +350,45 @@ public class SintacticoSemantico {
         }
     }
 
-    private void declaracion_subrutina ()
+    private void declaracion_subrutina (Atributos declaracion_subrutina)
     {
+        Atributos argumentos = new Atributos();
+        Atributos proposiciones_optativas = new Atributos();
+        Linea_BE id;
         if ( preAnalisis.equals( "sub" ) )
         { 	//declaracion_subrutina -> sub id argumentos proposiciones_optativas end sub
             emparejar( "sub" );
+            id = cmp.be.preAnalisis;
             emparejar( "id" );
-            argumentos();
-            proposiciones_optativas();
+            argumentos(argumentos);
+            
+            //Accion semantica 17
+            if( analizarSemantica ){
+                if( buscaTipo(id).equals("") ){
+                    declaracion_subrutina.aux = VACIO;
+                    cmp.ts.anadeTipo(id.entrada, argumentos.dominio + " -> " + "nil");
+                }else{
+                    declaracion_subrutina.aux = ERROR_TIPO;
+                }
+            }
+            
+            proposiciones_optativas(proposiciones_optativas);
             emparejar( "end" );
             emparejar( "sub" );
+            
+            //Accion semantica 18
+            if( analizarSemantica ){
+                if( declaracion_subrutina.aux.equals(VACIO)&&proposiciones_optativas.tipo.equals(VACIO) ){
+                    declaracion_subrutina.tipo = VACIO;
+                }else{
+                    if(! declaracion_subrutina.aux.equals(VACIO) ){
+                      cmp.me.error(Compilador.ERR_SEMANTICO, "[declaracion_subrutina]: La variable " + id.lexema + " ya esta declarada.");
+                    }else{
+                      cmp.me.error(Compilador.ERR_SEMANTICO, "[declaracion_subrutina]: Error en la declaracion de la subrutina");
+                    }
+                    declaracion_subrutina.tipo = ERROR_TIPO;
+                }
+            }
         }
         else
         {
@@ -297,31 +396,62 @@ public class SintacticoSemantico {
         }
     }
 
-    private void argumentos ()
+    private void argumentos (Atributos argumentos)
     {
+        Atributos lista_declaraciones = new Atributos();
         if ( preAnalisis.equals( "(" ) )
         { 	//argumentos -> ( lista_declaraciones )
             emparejar( "(" );
-            lista_declaraciones();
+            lista_declaraciones(lista_declaraciones);
             emparejar( ")" );
+            
+            //Accion semantica 19
+            if( analizarSemantica ){
+                argumentos.tipo = lista_declaraciones.tipo;
+                argumentos.dominio = lista_declaraciones.dominio;
+            }
         }
         else
         {
+            //Accion semantica 20
+            if( analizarSemantica ){
+                argumentos.tipo = VACIO;
+                argumentos.dominio = "";
+            }
             //argumentos -> empty
         }
     }
 
-    private void proposiciones_optativas() {
+    private void proposiciones_optativas(Atributos proposiciones_optativas) {
+        Atributos proposiciones_optativas1 = new Atributos();
+        Atributos proposicion = new Atributos();
         Set<String> validos = Set.of("id", "call", "if", "do");
         if (validos.contains(preAnalisis)) {
             //proposiciones_optativas -> proposicion proposiciones_optativas
-            proposicion();
-            proposiciones_optativas();
+            proposicion(proposicion);
+            proposiciones_optativas(proposiciones_optativas1);
+            
+            //Accion semantica 21
+            if( analizarSemantica ){
+                if( proposicion.tipo.equals(VACIO) && proposiciones_optativas1.tipo.equals(VACIO) ){
+                    proposiciones_optativas.tipo = VACIO;
+                }else{
+                    proposiciones_optativas.tipo = ERROR_TIPO;
+                    cmp.me.error(Compilador.ERR_SEMANTICO, "[proposiciones_optativas]: Error en proposiciones optativas");
+                }
+            }
+        }else{
+            //Accion semantica 22
+            if( analizarSemantica ){
+                
+            }
+            //proposiciones_optativas -> empty
         }
     }
 
-    private void proposicion ()
+    private void proposicion (Atributos proposicion)
     {
+        Atributos proposiciones_optativas = new Atributos();
         if ( preAnalisis.equals( "id" ) )
         { 	//proposicion -> id opasig expresion
             emparejar( "id" );
@@ -339,9 +469,9 @@ public class SintacticoSemantico {
             emparejar( "if" );
             condicion();
             emparejar( "then" );
-            proposiciones_optativas();
+            proposiciones_optativas(proposiciones_optativas);
             emparejar( "else" );
-            proposiciones_optativas();
+            proposiciones_optativas(proposiciones_optativas);
             emparejar( "end" );
             emparejar( "if" );
         }
@@ -350,7 +480,7 @@ public class SintacticoSemantico {
             emparejar( "do" );
             emparejar( "while" );
             condicion();
-            proposiciones_optativas();
+            proposiciones_optativas(proposiciones_optativas);
             emparejar( "loop" );
         }
         else
