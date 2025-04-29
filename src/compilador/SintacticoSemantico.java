@@ -134,16 +134,11 @@ public class SintacticoSemantico {
             proposiciones_optativas(proposiciones_optativas);
             emparejar( "end" );
             //==========================================================================
-            if( analizarSemantica )
-                System.out.println("Activa");
-            else
-                System.out.println("No activa");
-            
-            System.out.println("");
-            
-            //accio1
-            boolean sonVacios = sonTipoVacio(declaraciones, declaraciones_subprogramas, proposiciones_optativas);
-            programa.tipo = sonVacios ? VACIO : ERROR_TIPO;
+            //accion1
+            if( analizarSemantica ){
+                boolean sonVacios = sonTipoVacio(declaraciones, declaraciones_subprogramas, proposiciones_optativas);
+                programa.tipo = sonVacios ? VACIO : ERROR_TIPO;
+            }
         } else {
             error( "[programa]: El programa debe iniciar con una declaracion, un subprograma o una proposicion, o solo terminar con la palabra end" );
         }
@@ -160,13 +155,16 @@ public class SintacticoSemantico {
             declaraciones(declaracionesHijo);
             
             //Accion2
-            boolean sonVacios = sonTipoVacio(lista_declaraciones, declaracionesHijo);
-            declaraciones.tipo = sonVacios ? VACIO : ERROR_TIPO;
+            if( analizarSemantica ){
+                boolean sonVacios = sonTipoVacio(lista_declaraciones, declaracionesHijo);
+                declaraciones.tipo = sonVacios ? VACIO : ERROR_TIPO;
+            }
             
         //declaraciones -> empty
         } else {
             //Accion3
-            declaraciones.tipo = VACIO;
+            if( analizarSemantica )
+                declaraciones.tipo = VACIO;
         }
     }
     
@@ -484,9 +482,11 @@ public class SintacticoSemantico {
         }
         else if ( preAnalisis.equals( "call" ) )
         { 	//proposicion -> call id proposicion'
+            //System.out.println("Token: "+cmp.be.preAnalisis.lexema);
             emparejar( "call" );
             id = cmp.be.preAnalisis;
             emparejar( "id" );
+            //System.out.println("Token: "+id.lexema);
             proposicion_(proposicion_);
             
             //Accion semantica 24
@@ -528,7 +528,7 @@ public class SintacticoSemantico {
             
             //Accion semantica 25
             if(analizarSemantica){
-                if( condicion.tipo.equals(VACIO) && proposiciones_optativas1.equals(VACIO) && proposiciones_optativas2.equals(VACIO) )
+                if( condicion.tipo.equals(VACIO) && proposiciones_optativas1.tipo.equals(VACIO) && proposiciones_optativas2.tipo.equals(VACIO) )
                     proposicion.tipo = VACIO;
                 else{
                     proposicion.tipo = ERROR_TIPO;
@@ -601,10 +601,10 @@ public class SintacticoSemantico {
         { 	//lista_expresiones -> expresion lista_expresiones' 
             expresion(expresion);
             lista_expresiones_(lista_expresiones_);
-            
+//====================================================================================================================================
             //Accion semantica 29
             if( analizarSemantica ){
-                if(! expresion.tipo.equals(ERROR_TIPO) && lista_expresiones_.tipo.equals(VACIO)){
+                if( !expresion.tipo.equals(ERROR_TIPO) && lista_expresiones_.tipo.equals(VACIO)){
                     lista_expresiones.dominio = expresion.tipo;
                     if( !lista_expresiones_.dominio.equals("") )
                         lista_expresiones.dominio = lista_expresiones.dominio + " x " + lista_expresiones_.dominio;
@@ -613,7 +613,7 @@ public class SintacticoSemantico {
                 }else{
                     lista_expresiones.tipo = ERROR_TIPO;
                     lista_expresiones.dominio= "";
-                    cmp.me.error(Compilador.ERR_SEMANTICO, "[lista_expresiones]: Ocurrio un error en las expresiones");
+                    cmp.me.error(Compilador.ERR_SEMANTICO, "[lista_expresiones]: Ocurrio un error en las expresiones"); 
                 }
             }
         }
@@ -640,7 +640,7 @@ public class SintacticoSemantico {
             
             //Accion semantica 31
             if( analizarSemantica ){
-                if( !expresion.tipo.equals(ERROR_TIPO) && !lista_expresiones_1.tipo.equals(VACIO)){
+                if( !expresion.tipo.equals(ERROR_TIPO) && lista_expresiones_1.tipo.equals(VACIO)){
                     lista_expresiones_.dominio = expresion.tipo;
                     if( !lista_expresiones_1.dominio.equals("") )
                         lista_expresiones_.dominio = lista_expresiones_.dominio + " x " + lista_expresiones_1.dominio;
@@ -675,7 +675,7 @@ public class SintacticoSemantico {
             expresion(expresion2);
             //Accion semantica 33
             if( analizarSemantica ){
-                if(! expresion1.tipo.equals(ERROR_TIPO) && ! expresion2.tipo.equals(ERROR_TIPO)){
+                if(! expresion1.tipo.equals(ERROR_TIPO) && !expresion2.tipo.equals(ERROR_TIPO)){
                     if( expresion1.tipo.equals(expresion2.tipo) )
                         condicion.tipo = VACIO;
                     else if( !expresion1.tipo.equals("string") && !expresion2.tipo.equals("string"))
@@ -698,15 +698,31 @@ public class SintacticoSemantico {
 
     private void expresion (Atributos expresion)
     {
+        Atributos termino = new Atributos();
+        Atributos expresion_ = new Atributos();
         if ( preAnalisis.equals( "id" ) || preAnalisis.equals( "num" ) || preAnalisis.equals( "num.num" ) ||
              preAnalisis.equals( "(" ) )
         { 	//expresion -> termino expresion'
-            termino();
-            expresion_();
+            termino(termino);
+            
+            //Accion semantica 34
+            if( analizarSemantica ){
+                expresion_.h = termino.tipo;
+            }
+            expresion_(expresion_);
+            
+            //Accion semantica 35
+            if( analizarSemantica ){
+                expresion.tipo = expresion_.tipo;
+            }
         }
         else if ( preAnalisis.equals( "literal" ) )
         { 	//expresion -> literal
             emparejar( "literal" );
+            //Accion Semantica 36
+            if( analizarSemantica ){
+                expresion.tipo = "string";
+            }
         }
         else
         {	
@@ -714,27 +730,67 @@ public class SintacticoSemantico {
         }
     }
 
-    private void expresion_ ()//Cambiamos apostrofe por guion bajo
+    private void expresion_ (Atributos expresion_)//Cambiamos apostrofe por guion bajo
     {
+        Atributos expresion_1 = new Atributos();
+        Atributos termino = new Atributos();
         if ( preAnalisis.equals( "opsuma" ) )
         { 	//expresion' -> opsuma termino expresion'
             emparejar( "opsuma" );
-            termino();
-            expresion_();
+            termino(termino);
+            
+            //Accuib semantica 37
+            if( analizarSemantica ){
+                if ( !termino.tipo.equals(ERROR_TIPO) && !expresion_.h.equals(ERROR_TIPO)){
+                    if( termino.tipo.equals(expresion_.h) ){
+                        expresion_1.h = termino.tipo;
+                    }else if( !termino.tipo.equals("string") && !expresion_.h.equals("string") ){
+                        expresion_1.h = "single";
+                    }else{
+                        expresion_1.h = ERROR_TIPO;
+                    }
+                }else{
+                    expresion_1.h = ERROR_TIPO;
+                }
+            }
+            
+            expresion_(expresion_1);
+            
+            //Accuib semantica 38
+            if( analizarSemantica ){
+                expresion_.tipo = expresion_1.tipo;
+            }
         }
         else
         {	
+            //Accuib semantica 39
+            if( analizarSemantica ){
+                expresion_.tipo = expresion_.h;
+            }
             //expresion' -> empty
         }
     }
 
-    private void termino ()
+    private void termino (Atributos termino)
     {
+        Atributos termino_ = new Atributos();
+        Atributos factor = new Atributos();
         if ( preAnalisis.equals( "id" ) || preAnalisis.equals( "num" ) || preAnalisis.equals( "num.num" ) ||
              preAnalisis.equals( "(" ) )
         { 	//termino -> factor termino'
-            factor();
-            termino_();
+            factor(factor);
+            
+            //Accion semantica 40
+            if( analizarSemantica ){
+                termino_.h = factor.tipo;
+            }
+            
+            termino_(termino_);
+            
+            //Accion semantica 41
+            if( analizarSemantica ){
+                termino.tipo = termino_.tipo;
+            }
         }
         else
         {	
@@ -742,41 +798,119 @@ public class SintacticoSemantico {
         }
     }
 
-    private void termino_()//Cambiamos apostrofe por guion bajo
+    private void termino_(Atributos termino_)//Cambiamos apostrofe por guion bajo
     {
+        Atributos termino_1 = new Atributos();
+        Atributos factor = new Atributos();
         if ( preAnalisis.equals( "opmult" ) )
         { 	//termino' -> opmult factor termino'
             emparejar( "opmult" );
-            factor();
-            termino_();
+            factor(factor);
+            
+            //Accion semantica 42
+            if( analizarSemantica ){
+                if(! factor.tipo.equals(ERROR_TIPO) && !termino_.h.equals(ERROR_TIPO) && !factor.tipo.equals("string") && !termino_.h.equals("string") ){
+                    if( factor.tipo.equals(termino_.h) )
+                        termino_1.h = factor.tipo;
+                    else
+                        termino_1.h = "single";
+                }else{
+                    termino_1.h = ERROR_TIPO;
+                }
+            }
+            
+            termino_(termino_1);
+            
+            //Accion semantica 43
+            if( analizarSemantica ){
+                termino_.tipo = termino_1.tipo;
+            }
         }
         else
         {	
+            //Accion semantica 44
+            if( analizarSemantica ){
+                termino_.tipo = termino_.h;
+            }
             //termino -> empty
         }
     }
 
-    private void factor ()
+    private void factor (Atributos factor)
     {
         Atributos expresion = new Atributos();
+        Atributos factor_ = new Atributos();
+        Linea_BE id;
         if ( preAnalisis.equals( "id" ) )
         { 	//factor -> id factor'
+            id = cmp.be.preAnalisis;
             emparejar( "id" );
-            factor_();
+            factor_(factor_);
+            
+            //Accion semantica 45
+            if( analizarSemantica ){
+                if( !factor_.tipo.equals(ERROR_TIPO) && !buscaTipo(id).equals("") ){
+                    if( buscaTipo(id).contains("->") ){
+                        String partes[] = buscaTipo(id).split("->");
+                        String D = partes[0].trim();
+                        String R = partes[1].trim();
+                        if( factor_.tipo.equals(D) && !R.equals("nil")){
+                            factor.tipo = R;
+                        }else{
+                            factor.tipo = ERROR_TIPO;
+                        }
+                    }else if( factor_.tipo.equals(VACIO) )
+                        factor.tipo = buscaTipo(id);
+                    else
+                        factor.tipo = ERROR_TIPO;
+//                    if( factor_.tipo.equals(VACIO)){
+//                        factor.tipo = buscaTipo(id);
+//                    }else if( buscaTipo(id).contains("->") ){
+//                        String partes[] = buscaTipo(id).split("->");
+//                        String D = partes[0].trim();
+//                        String R = partes[1].trim();
+//                        if( factor_.tipo.equals(D) && !R.equals("nil")){
+//                            factor.tipo = R;
+//                        }else{
+//                            factor.tipo = ERROR_TIPO;
+//                        }
+//                    }else{
+//                        factor.tipo = ERROR_TIPO;
+//                    }
+                    
+                }else{
+                    factor.tipo = ERROR_TIPO;
+                }
+            }
         }
         else if ( preAnalisis.equals( "num" ) )
         { 	//factor -> num
             emparejar( "num" );
+            
+            //Accion semantica 46
+            if( analizarSemantica ){
+                factor.tipo = "integer";
+            }
         }
         else if ( preAnalisis.equals( "num.num" ) )
         { 	//factor -> num.num
             emparejar( "num.num" );
+            
+            //Accion semantica 47
+            if( analizarSemantica ){
+                factor.tipo = "single";
+            }
         }
         else if ( preAnalisis.equals( "(" ) )
         { 	//factor -> ( expresion )
             emparejar( "(" );
             expresion(expresion);
             emparejar( ")" );
+            
+            //Accion semantica 48
+            if( analizarSemantica ){
+                factor.tipo = expresion.tipo;
+            }
         }
         else
         {	
@@ -784,7 +918,7 @@ public class SintacticoSemantico {
         }
     }
 
-    private void factor_()//Cambiamos apostrofe por guion bajo
+    private void factor_(Atributos factor_)//Cambiamos apostrofe por guion bajo
     {
         Atributos lista_expresiones = new Atributos();
         if ( preAnalisis.equals( "(" ) )
@@ -792,9 +926,22 @@ public class SintacticoSemantico {
             emparejar( "(" );
             lista_expresiones(lista_expresiones);
             emparejar( ")" );
+            
+            //Accion semantica 49
+            if( analizarSemantica ){
+                if( !lista_expresiones.tipo.equals(ERROR_TIPO) ){
+                    factor_.tipo = lista_expresiones.dominio;
+                }else{
+                    factor_.tipo = ERROR_TIPO;
+                }
+            }
         }
         else
-        {	
+        {
+            //Accion semantica 50
+            if( analizarSemantica ){
+                factor_.tipo = VACIO;
+            }
             //factor' -> empty
         }
     }
@@ -851,3 +998,30 @@ public class SintacticoSemantico {
 }
 //------------------------------------------------------------------------------
 //::
+
+/*
+dim operation as single, num1 as integer, num2 as integer
+
+function suma( a as single, b as integer ) as integer
+end function
+
+sub imprimir( cadena as string )
+end sub
+
+sub main
+
+    operation = num1*num2 + suma( a,b ) * ( 3 + ( suma( 3.1416, num1+num2 ) * 3.123 ) * 2312 )
+
+    operation = suma( 3.14, num1*num2 )
+
+    if operation >= suma( num2*num1 + ( 4.214*(num1+num2) ), 7*(num1+num2) ) 
+    then
+        cadena = "Es mayor la operacion"
+    else
+        cadena = "Es menor la operacion"
+    end if
+    call imprimir( cadena )
+end sub
+
+end
+*/

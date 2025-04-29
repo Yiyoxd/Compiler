@@ -232,7 +232,8 @@ public class Lexico {
                            "else",
                            "do",
                            "while",
-                           "loop"
+                           "loop",
+                           "call"
                          };
        for (int i = 0; i < palres.length; i++) {
            if (lex.equals ( palres[i] ) ) {       
